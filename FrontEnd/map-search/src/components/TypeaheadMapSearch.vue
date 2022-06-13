@@ -1,43 +1,47 @@
 <template>
   <div class="typeahead">
     <input
-      class="typeahead-input"
-      type="text"
-      :placeholder="placeholder"
-      v-model="query"
-      @input="onInput"
-      @blur="onBlur"
-      @focus="onFocus"
+        class="typeahead-input"
+        type="text"
+        :placeholder="placeholder"
+        v-model="query"
+        @input="onInput"
+        @blur="onBlur"
+        @focus="onFocus"
+        @keydown.down.prevent="onDown"
+        @keydown.up.prevent="onUp"
+        @keydown.enter.prevent="onEnter"
     />
     <div v-if="showSearchRes" class="res-list">
       <div
-        class="res-list-item"
-        :class="{
-          'res-list-item-active': hoverItemIdx == index,
+          class="res-list-item"
+          :class="{
+          'res-list-item-active': current == index,
         }"
-        v-for="(item, index) in items"
-        :key="index"
-        @mousedown.prevent
-        @click="selectItem(item)"
-        @mouseenter="hoverItemIdx = index"
+          v-for="(item, index) in items"
+          :key="index"
+          :id="'list-item-' + index"
+          @mousedown.prevent
+          @click="selectItem(item)"
+          @mouseenter="current = index"
       >
         <p
-          class="res-list-item-text"
-          :data-text="item.name"
-          v-html="boldMatchText(item.name)"
+            class="res-list-item-text"
+            :data-text="item.name"
+            v-html="boldMatchText(item.name)"
         ></p>
       </div>
     </div>
   </div>
 
   <iframe
-    v-if="selectedItem"
-    class="gmap"
-    style="border: 0"
-    loading="lazy"
-    allowfullscreen
-    referrerpolicy="no-referrer-when-downgrade"
-    :src="
+      v-if="selectedItem"
+      class="gmap"
+      style="border: 0"
+      loading="lazy"
+      allowfullscreen
+      referrerpolicy="no-referrer-when-downgrade"
+      :src="
       'https://www.google.com/maps/embed/v1/place?key=AIzaSyBox_43IiHuZiHi8Dg7fZC_EU8Ba8g7qro&q=' +
       mapQuery
     "
@@ -67,13 +71,14 @@ export default {
       this.searchStates();
     },
     onBlur() {
-      this.focused = false;
+      // this.focused = false;
     },
     onFocus() {
       this.focused = true;
       this.searchStates();
     },
     searchStates() {
+      this.current = 0;
       const q = `
       {
         states(query: "${this.query}") {
@@ -84,22 +89,54 @@ export default {
       `;
       const ts = this;
       this.axios
-        .post("http://localhost:4000/graphql", {
-          query: q,
-        })
-        .then(function (response) {
-          ts.items = response.data.data.states;
-        })
-        .catch(function (error) {
-          console.log(error);
-        });
+          .post("http://localhost:4000/graphql", {
+            query: q,
+          })
+          .then(function (response) {
+            ts.items = response.data.data.states;
+          })
+          .catch(function (error) {
+            console.log(error);
+          });
+    },
+    onDown() {
+      if (!this.focused || this.current >= this.items.length) {
+        return;
+      }
+      this.current++;
+      this.scrollTo();
+    },
+    onUp() {
+      if (!this.focused || this.current <= 0) {
+        return;
+      }
+      this.current--;
+      this.scrollTo();
+    },
+    scrollTo() {
+      setTimeout(() => {
+        const active_node = document.querySelector(
+            `#list-item-${this.current}`
+        );
+        const res_list_node = document.querySelector(`.res-list`);
+        res_list_node.scrollTo(0, active_node.offsetTop);
+      });
+    },
+    onEnter() {
+      if (
+          this.current &&
+          this.current >= 0 &&
+          this.current < this.items.length
+      ) {
+        this.selectItem(this.items[this.current]);
+      }
     },
   },
   data() {
     return {
       query: "",
       items: [],
-      hoverItemIdx: 0,
+      current: 0,
       selectedItem: undefined,
       focused: false,
     };
